@@ -3,7 +3,7 @@
 
 - [x] State machine/events system
   - [ ] choice states may be broken
-- [ ] Asset loading
+- [x] Asset loading
 - [ ] Physics
 - [ ] Tiles/level design
 - [ ] Graphics
