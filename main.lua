@@ -43,6 +43,6 @@ function love.load()
 end
 
 function love.draw()
-  assets.maps.spikey:setDrawRange(0, 0, windowWidth, windowHeight)
-  assets.maps.spikey:draw()
+  assets.spikey:setDrawRange(0, 0, windowWidth, windowHeight)
+  assets.spikey:draw()
 end
