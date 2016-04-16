@@ -65,7 +65,7 @@ function Edge.new(trigger, guard, effect, to)
 end
 
 function Edge:matches(event)
-  if self.trigger then
+  if self.trigger and event then
     return self.trigger == event.kind
   end
   return true
@@ -78,9 +78,9 @@ function Edge:passes_guard(stateful_object, event)
   return true
 end
 
-function Edge:execute(stateful_object, event)
+function Edge:execute(stateful_object, payload, event)
   if self.effect then
-    self.effect(stateful_object, event)
+    self.effect(stateful_object, payload, event)
   end
   return self.to
 end
@@ -188,10 +188,12 @@ function StateMachine:process_event(stateful_object, event)
   local transition_was_taken = false
   repeat
     transition_was_taken = false
+    -- dbg.print('processing event', event, event and event.kind)
     local state = self.states[current_state_name]
     for i, transition in ipairs(state.transitions) do
-      if transition:matches(event) and transition:passes_guard(stateful_object, event.payload) then
-	current_state_name = transition:execute(stateful_object, event.payload)
+      if transition:matches(event) and
+          transition:passes_guard(stateful_object, event.payload) then
+	current_state_name = transition:execute(stateful_object, event.payload, event)
 	assert(self.states[current_state_name], "State transitioned to does not exist in the state table: " .. current_state_name)
 	transition_was_taken = true
       end
