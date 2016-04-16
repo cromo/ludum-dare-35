@@ -7,7 +7,7 @@
 - [ ] Physics
 - [ ] Tiles/level design
 - [ ] Graphics
-- [ ] Config file for things like run mode (debug/release)
+- [x] Config file for things like run mode (debug/release)
 
 ## Shapes / Player States
 
