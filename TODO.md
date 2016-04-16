@@ -1,7 +1,8 @@
 # Todo
 ## Basics
 
-- [ ] State machine/events system
+- [x] State machine/events system
+  - [ ] choice states may be broken
 - [ ] Asset loading
 - [ ] Physics
 - [ ] Tiles/level design
