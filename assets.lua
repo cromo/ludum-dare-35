@@ -20,7 +20,7 @@ function a.load(current_dir, t)
 
   for _, filename in ipairs(list_dir(current_dir)) do
     local full_path = current_dir .. '/' .. filename
-    if is_dir(filename) then
+    if is_dir(full_path) then
       t[filename] = {}
       a.load(full_path, t[filename])
     else
