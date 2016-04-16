@@ -1,26 +1,11 @@
+local dbg = require 'dbg'
 local state_machine = {}
 local sm = state_machine
-
---[[
-States
-  initial
-  final
-  regular
-  choice
-Edges
-  trigger event type
-  guard
-  effect
-Emitters
-  type
-Events
-  type
-  event data
-]]
 
 local EventQueue = {data = {}}
 sm.EventQueue = EventQueue
 function EventQueue.add(event)
+  -- dbg.printf('Adding %s event', event.kind)
   EventQueue.data[#EventQueue.data + 1] = event
 end
 
@@ -36,6 +21,7 @@ function EventQueue.pump(stateful_objects)
   local event = EventQueue.pop()
   while event do
     for _, stateful_object in ipairs(stateful_objects) do
+      -- dbg.printf('dispatching %s event', event.kind)
       sm.process(stateful_object, event)
     end
     event = EventQueue.pop()
@@ -204,8 +190,8 @@ function StateMachine:process_event(stateful_object, event)
     transition_was_taken = false
     local state = self.states[current_state_name]
     for i, transition in ipairs(state.transitions) do
-      if transition:matches(event) and transition:passes_guard(stateful_object, event) then
-	current_state_name = transition:execute(stateful_object, event)
+      if transition:matches(event) and transition:passes_guard(stateful_object, event.payload) then
+	current_state_name = transition:execute(stateful_object, event.payload)
 	assert(self.states[current_state_name], "State transitioned to does not exist in the state table: " .. current_state_name)
 	transition_was_taken = true
       end
