@@ -1,12 +1,25 @@
 local sm = require 'state_machine'
 
 function love.load()
-  test_machine = sm.StateMachine.new{
-    sm.State.new_initial(sm.Edge.new(nil, nil, function(state, event) print('initial: ' .. state.kind) end, 'test')),
-    sm.State.new('test', {
-	sm.Edge.new('dt', nil, function(state, event) print('dt: ' .. state.kind .. ' ' .. event.kind) end, 'final')
-    }),
-    sm.State.new_final()
+  test_machine = sm.StateMachine.new_from_table{
+    {
+      function(state, event)
+	print('initial2: ' .. state.kind)
+      end,
+      'test'
+    },
+    {
+      'test', {
+	{
+	  'dt',
+	  nil,
+	  function(state, event)
+	    print('dt2: ' .. state.kind .. ' ' .. event.kind)
+	  end,
+	  'final'
+	}
+      }
+    }
   }
 
   object = {

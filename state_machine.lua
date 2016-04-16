@@ -151,8 +151,41 @@ function StateMachine.new(states)
   for _, state in ipairs(states) do
     state_lookup[state.name] = state
   end
+  state_lookup.final = State.new_final()
   machine.states = state_lookup
   return machine
+end
+
+function StateMachine.new_from_table(raw_states)
+  -- {effect, to}
+  -- {'name', {trigger, guard, effect, to}, [kind = blah]}
+  assert(1 <= #raw_states, "No states provided in table")
+  local initial_transition = raw_states[1]
+  states = {State.new_initial(sm.Edge.new(nil, nil, initial_transition[1], initial_transition[2]))}
+  if #raw_states == 1 then
+    return StateMachine.new(states)
+  end
+local kinds = {regular = State.new, choice = State.new_choice}
+  for i = 2, #raw_states do
+    local raw_state = raw_states[i]
+    local name = raw_state[1]
+    local kind = regular
+    if raw_state.kind then
+      kind = raw_state.kind
+    end
+    kind = kinds[kind]
+    edges = {}
+    for _, raw_transition in ipairs(raw_state[2]) do
+      local trigger = raw_transition[1]
+      local guard = raw_transition[2]
+      local effect = raw_transition[3]
+      local to = raw_transition[4]
+      edges[#edges + 1] = Edge.new(trigger, guard, effect, to)
+    end
+    local state = kind(name, edges)
+    states[#states + 1] = state
+  end
+  return StateMachine.new(states)
 end
 
 function StateMachine:initialize_state(stateful_object)
