@@ -8,4 +8,10 @@ function dbg.print(...)
   end
 end
 
+function dbg.printf(formatstring, ...)
+  if dbg.enabled then
+    print(string.format(formatstring, ...))
+  end
+end
+
 return dbg

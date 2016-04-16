@@ -1,6 +1,7 @@
 local sm = require 'state_machine'
 local sti = require "sti"
 local dbg = require 'dbg'
+local assets = require 'assets'
 
 function love.load()
   test_machine = sm.StateMachine.new_from_table{
@@ -34,12 +35,14 @@ function love.load()
   dt:emit(2)
   sm.EventQueue.pump{object}
 
-	windowWidth = love.graphics.getWidth()
-	windowHeight = love.graphics.getHeight()
-	map = sti.new("assets/spikey.lua")
+  windowWidth = love.graphics.getWidth()
+  windowHeight = love.graphics.getHeight()
+
+  assets.register('lua', function(path) return sti.new(path) end)
+  assets.load 'assets'
 end
 
 function love.draw()
-	map:setDrawRange(0, 0, windowWidth, windowHeight)
-	map:draw()
+  assets.spikey:setDrawRange(0, 0, windowWidth, windowHeight)
+  assets.spikey:draw()
 end
