@@ -26,8 +26,11 @@ function a.load(current_dir, t)
     else
       local extension = filename:gsub('.+%.(.+)', '%1'):lower()
       local name = filename:gsub('(.+)%..+', '%1')
+      while name:find('%.') do
+        name = name:gsub('(.+)%..+', '%1')
+      end
       if handlers[extension] then
-	dbg.printf('loading [[%s]]', full_path)
+	dbg.printf('loading [[%s]] as [[%s]]', full_path, name)
 	t[name] = handlers[extension](full_path)
       else
 	dbg.printf('skipping [[%s]]', full_path)
