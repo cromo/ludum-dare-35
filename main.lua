@@ -13,11 +13,11 @@ function love.load()
     kind = 'foo',
   }
 
-  test_machine:initialize_object(object)
-  test_machine:process_event(object, sm.Event.new(nil, nil))
-  test_machine:process_event(object, sm.Event.new('loopy', {}))
-  test_machine:process_event(object, sm.Event.new('dt', {dt = 1}))
-  test_machine:process_event(object, sm.Event.new('hoopy', {}))
+  dt = sm.Emitter.new('dt')
+
+  test_machine:initialize_state(object)
+  dt:emit(2)
+  sm.EventQueue.pump{object}
 end
 
 function love.draw()

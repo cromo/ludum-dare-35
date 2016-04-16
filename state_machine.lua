@@ -18,6 +18,30 @@ Events
   event data
 ]]
 
+local EventQueue = {data = {}}
+sm.EventQueue = EventQueue
+function EventQueue.add(event)
+  EventQueue.data[#EventQueue.data + 1] = event
+end
+
+function EventQueue.pop()
+  return table.remove(EventQueue.data, 1)
+end
+
+function EventQueue.is_empty()
+  return #EventQueue.data == 0
+end
+
+function EventQueue.pump(stateful_objects)
+  local event = EventQueue.pop()
+  while event do
+    for _, stateful_object in ipairs(stateful_objects) do
+      sm.process(stateful_object, event)
+    end
+    event = EventQueue.pop()
+  end
+end
+
 local Event = {}
 sm.Event = Event
 function Event.new(kind, payload)
@@ -37,7 +61,10 @@ function Emitter.new(kind)
   return emitter
 end
 
--- TODO Emitter.emit
+function Emitter:emit(payload)
+  local event = Event.new(self.kind, payload)
+  EventQueue.add(event)
+end
 
 local Edge = {}
 sm.Edge = Edge
@@ -52,20 +79,22 @@ function Edge.new(trigger, guard, effect, to)
 end
 
 function Edge:matches(event)
-  return self.trigger == event.kind
-end
-
--- TODO: this needs to get the inner state of the machine somehow
-function Edge:passes_guard(object_state, event)
-  if self.guard then
-    return self.guard(object_state, event)
+  if self.trigger then
+    return self.trigger == event.kind
   end
   return true
 end
 
-function Edge:execute(object_state, event)
+function Edge:passes_guard(stateful_object, event)
+  if self.guard then
+    return self.guard(stateful_object, event)
+  end
+  return true
+end
+
+function Edge:execute(stateful_object, event)
   if self.effect then
-    self.effect(object_state, event)
+    self.effect(stateful_object, event)
   end
   return self.to
 end
@@ -126,27 +155,34 @@ function StateMachine.new(states)
   return machine
 end
 
-function StateMachine:initialize_object(object_state)
-  object_state.state = initial
-  -- TODO: run transition from initial state here
+function StateMachine:initialize_state(stateful_object)
+  stateful_object.state = {
+    name = initial,
+    machine = self,
+  }
+  self:process_event(stateful_object, sm.Event.new(nil, nil))
 end
 
-function StateMachine:process_event(object_state, event)
-  local current_state_name = object_state.state
+function StateMachine:process_event(stateful_object, event)
+  local current_state_name = stateful_object.state.name
   assert(self.states[current_state_name], "Current object state not a state in state machine")
   local transition_was_taken = false
   repeat
     transition_was_taken = false
     local state = self.states[current_state_name]
     for i, transition in ipairs(state.transitions) do
-      if transition:matches(event) and transition:passes_guard(object_state, event) then
-	current_state_name = transition:execute(object_state, event)
+      if transition:matches(event) and transition:passes_guard(stateful_object, event) then
+	current_state_name = transition:execute(stateful_object, event)
 	assert(self.states[current_state_name], "State transitioned to does not exist in the state table: " .. current_state_name)
 	transition_was_taken = true
       end
     end
   until self.states[current_state_name].kind == regular or self.states[current_state_name].kind == final or not transition_was_taken
-  object_state.state = current_state_name
+  stateful_object.state.name = current_state_name
+end
+
+function state_machine.process(stateful_object, event)
+  stateful_object.state.machine:process_event(stateful_object, event)
 end
 
 return state_machine
