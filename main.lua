@@ -1,11 +1,12 @@
 local sm = require 'state_machine'
 local sti = require "sti"
+local dbg = require 'dbg'
 
 function love.load()
   test_machine = sm.StateMachine.new_from_table{
     {
       function(state, event)
-	print('initial2: ' .. state.kind)
+	dbg.print('initial2: ' .. state.kind)
       end,
       'test'
     },
@@ -15,7 +16,7 @@ function love.load()
 	  'dt',
 	  nil,
 	  function(state, event)
-	    print('dt2: ' .. state.kind .. ' ' .. event.kind)
+	    dbg.print('dt2: ' .. state.kind .. ' ' .. event.kind)
 	  end,
 	  'final'
 	}
