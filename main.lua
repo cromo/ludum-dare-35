@@ -1,4 +1,5 @@
 local sm = require 'state_machine'
+local sti = require "sti"
 
 function love.load()
   test_machine = sm.StateMachine.new_from_table{
@@ -31,8 +32,13 @@ function love.load()
   test_machine:initialize_state(object)
   dt:emit(2)
   sm.EventQueue.pump{object}
+
+	windowWidth = love.graphics.getWidth()
+	windowHeight = love.graphics.getHeight()
+	map = sti.new("assets/spikey.lua")
 end
 
 function love.draw()
-  love.graphics.print("Hello World!", 400, 300)
+	map:setDrawRange(0, 0, windowWidth, windowHeight)
+	map:draw()
 end
