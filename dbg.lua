@@ -14,4 +14,12 @@ function dbg.printf(formatstring, ...)
   end
 end
 
+local function noop() end
+local function debugging(self, f, ...)
+  if dbg.enabled then
+    return f(...)
+  end
+end
+setmetatable(dbg, {__call = debugging})
+
 return dbg

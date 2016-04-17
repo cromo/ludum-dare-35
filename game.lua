@@ -162,7 +162,7 @@ end
 
 function Player:draw()
   self.sprite:draw(self.collision.body:getX() - self.sprite:getWidth() / 2, self.collision.body:getY() - self.sprite:getHeight() / 2)
-  graphics.polygon('line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
+  dbg(graphics.polygon, 'line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
 end
 
 game.player_state_machine = sm.StateMachine.new_from_table{
@@ -289,6 +289,8 @@ function Game.new()
   g.map = assets.factory
   g.map:box2d_init(g.world)
 
+  g.map.layers.collision.visible = false
+  dbg(function() g.map.layers.collision.visible = true end)
   local player_start = g.map:getObject('collision', 'player')
   g.player = Player.new(assets.player, g.world, player_start)
 
