@@ -5,6 +5,10 @@ local sprites = require 'sprites'
 
 local game = {}
 
+local speed_scaling = 10
+local player_horizontal_speed = speed_scaling * 30
+local player_vertical_speed = speed_scaling * 30
+
 local function is_key(key)
   return function(state, k)
     return key == k
@@ -69,23 +73,23 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     'jumping',
     {
       {'contact_begin', Player.hit('floor'), nil, 'standing'},
-      {'raw_key_pressed', is_key('left'), Player.move(-30 * 64, 0), 'jumping_left'},
-      {'raw_key_pressed', is_key('right'), Player.move(30 * 64, 0), 'jumping_right'},
+      {'raw_key_pressed', is_key('left'), Player.move(-player_horizontal_speed, 0), 'jumping_left'},
+      {'raw_key_pressed', is_key('right'), Player.move(player_horizontal_speed, 0), 'jumping_right'},
     }
   },
   {
     'standing',
     {
-      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping'},
-      {'raw_key_pressed', is_key('left'), Player.move(-30 * 64, 0), 'walking_left'},
-      {'raw_key_pressed', is_key('right'), Player.move(30 * 64, 0), 'walking_right'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping'},
+      {'raw_key_pressed', is_key('left'), Player.move(-player_horizontal_speed, 0), 'walking_left'},
+      {'raw_key_pressed', is_key('right'), Player.move(player_horizontal_speed, 0), 'walking_right'},
     }
   },
   {
     'walking_left',
     {
       {'raw_key_released', is_key('left'), Player.stop, 'standing'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping_left'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
     }
   },
   {
@@ -99,7 +103,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     'walking_right',
     {
       {'raw_key_released', is_key('right'), Player.stop, 'standing'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping_left'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
     }
   },
   {
@@ -119,7 +123,7 @@ function Game.new()
   setmetatable(g, {__index = Game})
   game.state_machine:initialize_state(g)
 
-  set_meter(64)
+  set_meter(32)
 
   local navigate_sheet = sm.StateMachine.new_from_table{
     {nil, 'listening'},
@@ -189,15 +193,7 @@ function Game.new()
       emitter:emit(properties)
     end
   end
-  -- g.world:setCallbacks(function(object, level, contact)
-  --     if object:getUserData().properties then
-  -- 	object, level = level, object
-  --     end
-  --     local properties = level:getUserData().properties
-  --     g.collision_occurred:emit(properties)
-  --     dbg.print('collision', properties.type, properties.facing)
-  -- end)
-  g.world:setCallbacks(emit_collision_event(g.contact_begin, g.contact_end))
+  g.world:setCallbacks(emit_collision_event(g.contact_begin), emit_collision_event(g.contact_end))
 
   g.map = assets.factory
   g.map:box2d_init(g.world)
