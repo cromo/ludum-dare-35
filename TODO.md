@@ -19,6 +19,13 @@
 
 - [x] camera
 
+## When making levels
+
+- [ ] all level objects should be collidable
+- [ ] the player start should not be collidable
+- [ ] the level end shoud be collidable and a sensor
+- [ ] all collision edges should have a facing property
+
 ## Shapes / Player States
 
 - [ ] Ball
