@@ -225,7 +225,9 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["collidable"] = true
+            ["collidable"] = true,
+            ["facing"] = "up",
+            ["type"] = "floor"
           }
         },
         {
@@ -233,8 +235,8 @@ return {
           name = "Player",
           type = "",
           shape = "ellipse",
-          x = 511,
-          y = 64,
+          x = 130,
+          y = 358,
           width = 128,
           height = 128,
           rotation = 0,
@@ -253,7 +255,10 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["sensor"] = true
+            ["collidable"] = true,
+            ["facing"] = "left",
+            ["sensor"] = true,
+            ["type"] = "hook"
           }
         },
         {
@@ -268,7 +273,10 @@ return {
           rotation = 0,
           visible = true,
           properties = {
-            ["sensor"] = true
+            ["collidable"] = true,
+            ["facing"] = "down",
+            ["sensor"] = true,
+            ["type"] = "hook"
           }
         },
         {

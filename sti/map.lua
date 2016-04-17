@@ -1066,6 +1066,21 @@ function Map:getTileProperties(layer, x, y)
 	return tile.properties
 end
 
+function Map:getObject(layer, object)
+	local o = self.layers[layer].objects
+
+	if type(object) == "number" then
+		return o[object]
+	else
+		for _, v in ipairs(o) do
+			if v.name == object then
+				return v
+			end
+		end
+	end
+	return {}
+end
+
 --- Get custom properties from Object
 -- @param layer The Layer that the Object belongs to
 -- @param object The index or name of the Object

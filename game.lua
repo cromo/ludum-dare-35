@@ -25,38 +25,90 @@ function Player.new(sheet, collision)
   setmetatable(p, {__index = Player})
   p.sprite = sprites.new(sheet)
   p.collision = collision
+  p.collision.fixture:setUserData(p)
   game.player_state_machine:initialize_state(p)
   return p
 end
 
-function Player:move_right(dt)
-  self.collision.body:setLinearVelocity(100, 0)
+function Player.move(x, y)
+  return function(self)
+    self.collision.body:setLinearDamping(0)
+    self.collision.body:applyLinearImpulse(x, y)
+  end
 end
 
-function Player:stop_moving_right()
+function Player:slow_down()
+  --self.collision.body:setLinearVelocity(0, 0)
+  self.collision.body:setLinearDamping(10)
+end
+
+function Player.hit(t)
+  return function(self, properties)
+    -- dbg.print(properties.type, t, properties.type == t)
+    return properties.type == t
+  end
+end
+
+function Player:stop()
   self.collision.body:setLinearVelocity(0, 0)
 end
 
+function Player:stop_x()
+  local _, y = self.collision.body:getLinearVelocity()
+  self.collision.body:setLinearVelocity(0, y)
+end
+
 function Player:draw()
-  self.sprite:draw(self.collision.body:getX() - 64, self.collision.body:getY() - 64)
+  self.sprite:draw(self.collision.body:getX() - self.sprite:getWidth() / 2, self.collision.body:getY() - self.sprite:getHeight() / 2)
   love.graphics.polygon('line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
 end
 
 game.player_state_machine = sm.StateMachine.new_from_table{
-  {nil, 'idle'},
+  {nil, 'jumping'},
   {
-    'idle',
+    'jumping',
     {
-      {'raw_key_pressed', is_key('right'), nil, 'moving_right'}
+      {'contact_begin', Player.hit('floor'), nil, 'standing'},
+      {'raw_key_pressed', is_key('left'), Player.move(-30 * 64, 0), 'jumping_left'},
+      {'raw_key_pressed', is_key('right'), Player.move(30 * 64, 0), 'jumping_right'},
     }
   },
   {
-    'moving_right',
+    'standing',
     {
-      {'dt', nil, Player.move_right, 'moving_right'},
-      {'raw_key_released', is_key('right'), Player.stop_moving_right, 'idle'}
+      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping'},
+      {'raw_key_pressed', is_key('left'), Player.move(-30 * 64, 0), 'walking_left'},
+      {'raw_key_pressed', is_key('right'), Player.move(30 * 64, 0), 'walking_right'},
     }
-  }
+  },
+  {
+    'walking_left',
+    {
+      {'raw_key_released', is_key('left'), Player.stop, 'standing'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping_left'},
+    }
+  },
+  {
+    'jumping_left',
+    {
+      {'raw_key_released', is_key('left'), Player.stop_x, 'jumping'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_left'}
+    }
+  },
+  {
+    'walking_right',
+    {
+      {'raw_key_released', is_key('right'), Player.stop, 'standing'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -30 * 64), 'jumping_left'},
+    }
+  },
+  {
+    'jumping_right',
+    {
+      {'raw_key_released', is_key('right'), Player.stop_x, 'jumping'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_right'}
+    }
+  },
 }
 
 
@@ -125,13 +177,35 @@ function Game.new()
     y = 0,
     s = sprites.new(assets.subspike)
   }
-  g.map = assets.spikey
   g.world = love.physics.newWorld(0, 64 * 9.81)
+  g.contact_begin = sm.Emitter.new('contact_begin')
+  g.contact_end = sm.Emitter.new('contact_end')
+  local function emit_collision_event(emitter)
+    return function(object, level, contact)
+      if object:getUserData().properties then
+	object, level = level, object
+      end
+      local properties = level:getUserData().properties
+      emitter:emit(properties)
+    end
+  end
+  -- g.world:setCallbacks(function(object, level, contact)
+  --     if object:getUserData().properties then
+  -- 	object, level = level, object
+  --     end
+  --     local properties = level:getUserData().properties
+  --     g.collision_occurred:emit(properties)
+  --     dbg.print('collision', properties.type, properties.facing)
+  -- end)
+  g.world:setCallbacks(emit_collision_event(g.contact_begin, g.contact_end))
+
+  g.map = assets.spikey
   g.map:box2d_init(g.world)
-  local player_start = g.map.objects[11]
-  local body = new_body(g.world, player_start.x + 64, player_start.y + 64, 'dynamic')
+
+  local player_start = g.map:getObject('Collision', 'Player')
+  local body = new_body(g.world, player_start.x + player_start.width / 2, player_start.y + player_start.height / 2, 'dynamic')
   body:setFixedRotation(true)
-  local shape = new_rectangle(0, 0, 128, 128)
+  local shape = new_rectangle(0, 0, player_start.width, player_start.height)
   local fixture = new_fixture(body, shape, 1)
   g.player = Player.new(assets.player, {
     body = body,
@@ -144,7 +218,9 @@ function Game.new()
 end
 
 function Game:forward_event(p, event)
-  -- dbg.printf('forwarding %s event', event.kind)
+  if event.kind ~= 'dt' then
+    dbg.printf('forwarding %s event', event.kind)
+  end
   sm.process(self.test_state, event)
   sm.process(self.player, event)
 end
