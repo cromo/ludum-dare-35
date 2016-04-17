@@ -7,7 +7,7 @@ local game_engine = require 'game'
 
 local game
 function love.load()
-  assets.register('lua', function(path) return sti.new(path) end)
+  assets.register('lua', function(path) return sti.new(path, {'box2d'}) end)
   assets.register('png', sprites.Sheet.load)
   assets.load 'assets'
 
@@ -15,7 +15,7 @@ function love.load()
 
   delta_time = sm.Emitter.new('dt')
   raw_key_pressed = sm.Emitter.new('raw_key_pressed')
-  raw_key_released = sm.Emitter.new('raw_key_reseased')
+  raw_key_released = sm.Emitter.new('raw_key_released')
 end
 
 function love.draw()

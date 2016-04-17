@@ -109,7 +109,7 @@ return {
 
 			fixture:setUserData(userdata)
 
-			if userdata.properties.sensor == "true" then
+			if userdata.properties.sensor == true then
 				fixture:setSensor(true)
 			end
 
@@ -238,7 +238,7 @@ return {
 				end
 
 			-- Every instance of a tile
-			elseif tile.properties and tile.properties.collidable == "true" and map.tileInstances[tile.gid] then
+			elseif tile.properties and tile.properties.collidable == true and map.tileInstances[tile.gid] then
 				for _, instance in ipairs(map.tileInstances[tile.gid]) do
 					local object = {
 						shape      = "rectangle",
@@ -256,7 +256,7 @@ return {
 
 		for _, layer in ipairs(map.layers) do
 			-- Entire layer
-			if layer.properties.collidable == "true" then
+			if layer.properties.collidable == true then
 				if layer.type == "tilelayer" then
 					for gid, tiles in pairs(map.tileInstances) do
 						local tile = map.tiles[gid]
@@ -298,7 +298,7 @@ return {
 			-- Individual objects
 			if layer.type == "objectgroup" then
 				for _, object in ipairs(layer.objects) do
-					if object.properties.collidable == "true" then
+					if object.properties.collidable == true then
 						calculateObjectPosition(object)
 					end
 				end
