@@ -38,7 +38,7 @@ function Player:stop_moving_right()
 end
 
 function Player:draw()
-  self.sprite:draw(self.collision.body:getX() - 64, self.collision.body:getY() - 64)
+  self.sprite:draw(self.collision.body:getX() - 16, self.collision.body:getY() - 16)
   love.graphics.polygon('line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
 end
 
@@ -125,13 +125,13 @@ function Game.new()
     y = 0,
     s = sprites.new(assets.subspike)
   }
-  g.map = assets.spikey
+  g.map = assets.factory
   g.world = love.physics.newWorld(0, 64 * 9.81)
   g.map:box2d_init(g.world)
-  local player_start = g.map.objects[11]
-  local body = new_body(g.world, player_start.x + 64, player_start.y + 64, 'dynamic')
+  local player_start = g.map.objects[2]
+  local body = new_body(g.world, player_start.x + 16, player_start.y + 16, 'dynamic')
   body:setFixedRotation(true)
-  local shape = new_rectangle(0, 0, 128, 128)
+  local shape = new_rectangle(0, 0, 32, 32)
   local fixture = new_fixture(body, shape, 1)
   g.player = Player.new(assets.player, {
     body = body,
