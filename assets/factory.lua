@@ -215,6 +215,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
+            ["collidable"] = true,
             ["facing"] = "left",
             ["sensor"] = true,
             ["type"] = "hooks"
@@ -232,6 +233,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
+            ["collidable"] = true,
             ["facing"] = "right",
             ["sensor"] = true,
             ["type"] = "hooks"
@@ -281,6 +283,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
+            ["collidable"] = true,
             ["facing"] = "down",
             ["sensor"] = true,
             ["type"] = "cup"
@@ -298,6 +301,7 @@ return {
           rotation = 0,
           visible = true,
           properties = {
+            ["collidable"] = true,
             ["facing"] = "up",
             ["sensor"] = true,
             ["type"] = "cup"
