@@ -7,17 +7,44 @@ local game = {}
 
 local speed_scaling = 20
 local player_horizontal_speed = speed_scaling * 30
+local player_max_horizontal_speed = speed_scaling * 30
 local player_vertical_speed = speed_scaling * 30
 
 local camera_follow_weight = 0.17
 
+local function wrap_collision_fixture(fixture)
+  local userdata = fixture:getUserData()
+  if not userdata then
+    return {
+      fixture = fixture,
+      type = 'unknown'
+    }
+  elseif userdata.properties then
+    return {
+      fixture = fixture,
+      type = userdata.properties.type or 'unknown'
+    }
+  elseif userdata.type then
+    return {
+      fixture = fixture,
+      type = userdata.type or 'unknown'
+    }
+  end
+  return {
+    fixture = fixture,
+    type = 'unknown'
+  }
+end
+
 local function emit_collision_event(emitter)
-  return function(object, level, contact)
-    if object:getUserData().properties then
-      object, level = level, object
-    end
-    local properties = level:getUserData().properties
-    emitter:emit(properties)
+  return function(a, b, contact)
+    local colliders = {
+      a = wrap_collision_fixture(a),
+      b = wrap_collision_fixture(b),
+      contact = contact
+    }
+    dbg.print('collision event between', colliders.a.type, colliders.b.type, contact:getFriction(), contact:getNormal())
+    emitter:emit(colliders)
   end
 end
 
@@ -25,6 +52,10 @@ local function is_key(key)
   return function(state, k)
     return key == k
   end
+end
+
+local function collided(colliders, type_a, type_b)
+  return colliders.a.type == type_a and colliders.b.type == type_b or colliders.a.type == type_b and colliders.b.type == type_a
 end
 
 local function clamp(value, min, max)
@@ -52,7 +83,9 @@ local Player = {}
 function Player.new(sheet, world, start)
   local p = {}
   setmetatable(p, {__index = Player})
+  p.type = 'player'
   p.sprite = sprites.new(sheet)
+  p.start = start
   local body = new_body(world, start.x + start.width / 2, start.y + start.height / 2, 'dynamic')
   body:setFixedRotation(true)
   local shape = new_rectangle(0, 0, start.width, start.height)
@@ -65,6 +98,14 @@ function Player.new(sheet, world, start)
   p.collision.fixture:setUserData(p)
   game.player_state_machine:initialize_state(p)
   return p
+end
+
+function Player:spawn()
+  self.collision.body:setPosition(self.start.x + self.start.width / 2, self.start.y + self.start.height / 2)
+  self.collision.body:setLinearVelocity(0, 0)
+end
+
+function Player:move_sensors()
 end
 
 function Player:getX()
@@ -90,15 +131,23 @@ function Player.move_x(x)
   end
 end
 
+function Player.accelerate(x, y)
+  return function(self, dt)
+    self.collision.body:applyForce(x, y)
+    local x, y = self.collision.body:getLinearVelocity()
+    x = clamp(x, -player_max_horizontal_speed, player_max_horizontal_speed)
+    self.collision.body:setLinearVelocity(x, y)
+  end
+end
+
 function Player:slow_down()
   --self.collision.body:setLinearVelocity(0, 0)
   self.collision.body:setLinearDamping(10)
 end
 
 function Player.hit(t)
-  return function(self, properties)
-    -- dbg.print(properties.type, t, properties.type == t)
-    return properties.type == t
+  return function(self, colliders)
+    return collided(colliders, 'player', t)
   end
 end
 
@@ -113,7 +162,7 @@ end
 
 function Player:draw()
   self.sprite:draw(self.collision.body:getX() - self.sprite:getWidth() / 2, self.collision.body:getY() - self.sprite:getHeight() / 2)
-  love.graphics.polygon('line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
+  graphics.polygon('line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
 end
 
 game.player_state_machine = sm.StateMachine.new_from_table{
@@ -121,54 +170,65 @@ game.player_state_machine = sm.StateMachine.new_from_table{
   {
     'jumping',
     {
+      {'dt', nil, Player.move_sensors, 'jumping'},
       {'contact_begin', Player.hit('floor'), nil, 'standing'},
-      {'raw_key_pressed', is_key('left'), Player.move(-player_horizontal_speed, 0), 'jumping_left'},
-      {'raw_key_pressed', is_key('right'), Player.move(player_horizontal_speed, 0), 'jumping_right'},
+      {'raw_key_pressed', is_key('left'), nil, 'jumping_left'},
+      {'raw_key_pressed', is_key('right'), nil, 'jumping_right'},
+      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
     }
   },
   {
     'jumping_left',
     {
+      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'jumping_left'},
       {'raw_key_released', is_key('left'), Player.stop_x, 'jumping'},
       {'raw_key_pressed', is_key('right'), nil, 'jumping_left_holding_right'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_left'}
+      {'contact_begin', Player.hit('floor'), nil, 'walking_left'},
+      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
     }
   },
   {
     'jumping_left_holding_right',
     {
-      {'raw_key_released', is_key('left'), Player.move_x(player_horizontal_speed), 'jumping_right'},
+      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'jumping_left_holding_right'},
+      {'raw_key_released', is_key('left'), nil, 'jumping_right'},
       {'raw_key_released', is_key('right'), nil, 'jumping_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_left_holding_right'}
+      {'contact_begin', Player.hit('floor'), nil, 'walking_left_holding_right'},
+      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
     }
   },
   {
     'jumping_right',
     {
+      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'jumping_right'},
       {'raw_key_released', is_key('right'), Player.stop_x, 'jumping'},
-      {'raw_key_pressed', annotate('jumping right and hit left', is_key('left')), nil, 'jumping_right_holding_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_right'}
+      {'raw_key_pressed', is_key('left'), nil, 'jumping_right_holding_left'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_right'},
+      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
     }
   },
   {
     'jumping_right_holding_left',
     {
+      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'jumping_right_holding_left'},
       {'raw_key_released', is_key('left'), nil, 'jumping_right'},
-      {'raw_key_released', is_key('right'), Player.move_x(-player_horizontal_speed), 'jumping_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_right_holding_left'}
+      {'raw_key_released', is_key('right'), nil, 'jumping_left'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_right_holding_left'},
+      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
     }
   },
   {
     'standing',
     {
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping'},
-      {'raw_key_pressed', is_key('left'), Player.move(-player_horizontal_speed, 0), 'walking_left'},
-      {'raw_key_pressed', is_key('right'), Player.move(player_horizontal_speed, 0), 'walking_right'},
+      {'raw_key_pressed', is_key('left'), nil, 'walking_left'},
+      {'raw_key_pressed', is_key('right'), nil, 'walking_right'},
     }
   },
   {
     'walking_left',
     {
+      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'walking_left'},
       {'raw_key_released', is_key('left'), Player.stop, 'standing'},
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
       {'raw_key_pressed', is_key('right'), nil, 'walking_left_holding_right'},
@@ -178,6 +238,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
   {
     'walking_left_holding_right',
     {
+      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'walking_left_holding_right'},
       {'raw_key_released', is_key('left'), Player.move_x(player_horizontal_speed), 'walking_right'},
       {'raw_key_released', is_key('right'), nil, 'walking_left'},
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left_holding_right'},
@@ -187,6 +248,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
   {
     'walking_right',
     {
+      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'walking_right'},
       {'raw_key_released', is_key('right'), Player.stop, 'standing'},
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right'},
       {'raw_key_pressed', is_key('left'), nil, 'walking_right_holding_left'},
@@ -196,6 +258,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
   {
     'walking_right_holding_left',
     {
+      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'walking_right_holding_left'},
       {'raw_key_released', is_key('left'), nil, 'walking_right'},
       {'raw_key_released', is_key('right'), Player.move_x(-player_horizontal_speed), 'walking_left'},
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right_holding_left'},
@@ -217,7 +280,11 @@ function Game.new()
   g.world = love.physics.newWorld(0, 64 * 9.81)
   g.contact_begin = sm.Emitter.new('contact_begin')
   g.contact_end = sm.Emitter.new('contact_end')
-  g.world:setCallbacks(emit_collision_event(g.contact_begin), emit_collision_event(g.contact_end))
+  local presolve = sm.Emitter.new('presolve')
+  g.world:setCallbacks(
+    emit_collision_event(g.contact_begin),
+    emit_collision_event(g.contact_end)
+  )
 
   g.map = assets.factory
   g.map:box2d_init(g.world)
