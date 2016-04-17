@@ -126,10 +126,11 @@ function Game.new()
     s = sprites.new(assets.subspike)
   }
   g.map = assets.spikey
-  g.world = love.physics.newWorld(0, 0)
+  g.world = love.physics.newWorld(0, 64 * 9.81)
   g.map:box2d_init(g.world)
   local player_start = g.map.objects[11]
   local body = new_body(g.world, player_start.x + 64, player_start.y + 64, 'dynamic')
+  body:setFixedRotation(true)
   local shape = new_rectangle(0, 0, 128, 128)
   local fixture = new_fixture(body, shape, 1)
   g.player = Player.new(assets.player, {
