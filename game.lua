@@ -21,6 +21,14 @@ local function clamp(value, min, max)
   return math.min(math.max(value, min), max)
 end
 
+local function annotate(s, f, ...)
+  return function(...)
+    local returned = f and f(...)
+    dbg.printf('%s returned %s', s, tostring(returned))
+    return returned
+  end
+end
+
 local quit = love.event.quit
 local get_window_width = love.graphics.getWidth
 local get_window_height = love.graphics.getHeight
@@ -53,6 +61,14 @@ function Player.move(x, y)
   return function(self)
     self.collision.body:setLinearDamping(0)
     self.collision.body:applyLinearImpulse(x, y)
+  end
+end
+
+function Player.move_x(x)
+  return function(self)
+    self.collision.body:setLinearDamping(0)
+    self:stop_x()
+    self.collision.body:applyLinearImpulse(x, 0)
   end
 end
 
@@ -93,6 +109,38 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     }
   },
   {
+    'jumping_left',
+    {
+      {'raw_key_released', is_key('left'), Player.stop_x, 'jumping'},
+      {'raw_key_pressed', is_key('right'), nil, 'jumping_left_holding_right'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_left'}
+    }
+  },
+  {
+    'jumping_left_holding_right',
+    {
+      {'raw_key_released', is_key('left'), Player.move_x(player_horizontal_speed), 'jumping_right'},
+      {'raw_key_released', is_key('right'), nil, 'jumping_left'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_left_holding_right'}
+    }
+  },
+  {
+    'jumping_right',
+    {
+      {'raw_key_released', is_key('right'), Player.stop_x, 'jumping'},
+      {'raw_key_pressed', annotate('jumping right and hit left', is_key('left')), nil, 'jumping_right_holding_left'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_right'}
+    }
+  },
+  {
+    'jumping_right_holding_left',
+    {
+      {'raw_key_released', is_key('left'), nil, 'jumping_right'},
+      {'raw_key_released', is_key('right'), Player.move_x(-player_horizontal_speed), 'jumping_left'},
+      {'contact_begin', Player.hit('floor'), nil, 'walking_right_holding_left'}
+    }
+  },
+  {
     'standing',
     {
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping'},
@@ -105,27 +153,35 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     {
       {'raw_key_released', is_key('left'), Player.stop, 'standing'},
       {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
+      {'raw_key_pressed', is_key('right'), nil, 'walking_left_holding_right'},
+      {'contact_end', Player.hit('floor'), nil, 'jumping_left'},
     }
   },
   {
-    'jumping_left',
+    'walking_left_holding_right',
     {
-      {'raw_key_released', is_key('left'), Player.stop_x, 'jumping'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_left'}
+      {'raw_key_released', is_key('left'), Player.move_x(player_horizontal_speed), 'walking_right'},
+      {'raw_key_released', is_key('right'), nil, 'walking_left'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left_holding_right'},
+      {'contact_end', Player.hit('floor'), nil, 'jumping_left_holding_right'},
     }
   },
   {
     'walking_right',
     {
       {'raw_key_released', is_key('right'), Player.stop, 'standing'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right'},
+      {'raw_key_pressed', is_key('left'), nil, 'walking_right_holding_left'},
+      {'contact_end', Player.hit('floor'), nil, 'jumping_right'},
     }
   },
   {
-    'jumping_right',
+    'walking_right_holding_left',
     {
-      {'raw_key_released', is_key('right'), Player.stop_x, 'jumping'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_right'}
+      {'raw_key_released', is_key('left'), nil, 'walking_right'},
+      {'raw_key_released', is_key('right'), Player.move_x(-player_horizontal_speed), 'walking_left'},
+      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right_holding_left'},
+      {'contact_end', Player.hit('floor'), nil, 'jumping_right_holding_left'},
     }
   },
 }
@@ -175,7 +231,7 @@ end
 
 function Game:forward_event(p, event)
   if event.kind ~= 'dt' then
-    dbg.printf('forwarding %s event', event.kind)
+    -- dbg.printf('forwarding %s event', event.kind)
   end
   sm.process(self.player, event)
 end
