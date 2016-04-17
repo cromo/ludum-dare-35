@@ -136,7 +136,7 @@
     <property name="type" value="hooks"/>
    </properties>
   </object>
-  <object id="7" x="305" y="37" width="32" height="122">
+  <object id="7" x="305" y="35" width="32" height="124">
    <properties>
     <property name="collidable" type="bool" value="true"/>
     <property name="type" value="wall"/>
@@ -172,7 +172,7 @@
     <property name="type" value="wall"/>
    </properties>
   </object>
-  <object id="16" x="305" y="32" width="32" height="6">
+  <object id="16" x="305" y="32" width="32" height="2">
    <properties>
     <property name="collidable" type="bool" value="true"/>
     <property name="facing" value="up"/>

@@ -245,9 +245,9 @@ return {
           type = "",
           shape = "rectangle",
           x = 305,
-          y = 37,
+          y = 35,
           width = 32,
-          height = 122,
+          height = 124,
           rotation = 0,
           visible = true,
           properties = {
@@ -333,7 +333,7 @@ return {
           x = 305,
           y = 32,
           width = 32,
-          height = 6,
+          height = 2,
           rotation = 0,
           visible = true,
           properties = {
