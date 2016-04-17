@@ -199,10 +199,10 @@ function Game.new()
   -- end)
   g.world:setCallbacks(emit_collision_event(g.contact_begin, g.contact_end))
 
-  g.map = assets.spikey
+  g.map = assets.factory
   g.map:box2d_init(g.world)
 
-  local player_start = g.map:getObject('Collision', 'Player')
+  local player_start = g.map:getObject('collision', 'player')
   local body = new_body(g.world, player_start.x + player_start.width / 2, player_start.y + player_start.height / 2, 'dynamic')
   body:setFixedRotation(true)
   local shape = new_rectangle(0, 0, player_start.width, player_start.height)
