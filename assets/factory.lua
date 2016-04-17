@@ -8,7 +8,7 @@ return {
   height = 50,
   tilewidth = 32,
   tileheight = 32,
-  nextobjectid = 16,
+  nextobjectid = 18,
   properties = {},
   tilesets = {
     {
@@ -245,13 +245,14 @@ return {
           type = "",
           shape = "rectangle",
           x = 305,
-          y = 33,
+          y = 37,
           width = 32,
-          height = 126,
+          height = 122,
           rotation = 0,
           visible = true,
           properties = {
-            ["collidable"] = true
+            ["collidable"] = true,
+            ["type"] = "wall"
           }
         },
         {
@@ -268,7 +269,7 @@ return {
           properties = {
             ["collidable"] = true,
             ["facing"] = "up",
-            ["type"] = "stand"
+            ["type"] = "wall"
           }
         },
         {
@@ -321,7 +322,24 @@ return {
           properties = {
             ["collidable"] = true,
             ["facing"] = "down",
-            ["type"] = "stand"
+            ["type"] = "wall"
+          }
+        },
+        {
+          id = 16,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = 305,
+          y = 32,
+          width = 32,
+          height = 6,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["collidable"] = true,
+            ["facing"] = "up",
+            ["type"] = "floor"
           }
         }
       }
