@@ -17,7 +17,7 @@
 
 ## Graphics
 
-- [ ] camera
+- [x] camera
 
 ## Shapes / Player States
 
