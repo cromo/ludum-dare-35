@@ -11,6 +11,16 @@ local player_vertical_speed = speed_scaling * 30
 
 local camera_follow_weight = 0.17
 
+local function emit_collision_event(emitter)
+  return function(object, level, contact)
+    if object:getUserData().properties then
+      object, level = level, object
+    end
+    local properties = level:getUserData().properties
+    emitter:emit(properties)
+  end
+end
+
 local function is_key(key)
   return function(state, k)
     return key == k
@@ -39,11 +49,19 @@ local set_meter = love.physics.setMeter
 local graphics = love.graphics
 
 local Player = {}
-function Player.new(sheet, collision)
+function Player.new(sheet, world, start)
   local p = {}
   setmetatable(p, {__index = Player})
   p.sprite = sprites.new(sheet)
-  p.collision = collision
+  local body = new_body(world, start.x + start.width / 2, start.y + start.height / 2, 'dynamic')
+  body:setFixedRotation(true)
+  local shape = new_rectangle(0, 0, start.width, start.height)
+  local fixture = new_fixture(body, shape, 1)
+  p.collision = {
+    body = body,
+    shape = shape,
+    fixture = fixture
+  }
   p.collision.fixture:setUserData(p)
   game.player_state_machine:initialize_state(p)
   return p
@@ -199,30 +217,13 @@ function Game.new()
   g.world = love.physics.newWorld(0, 64 * 9.81)
   g.contact_begin = sm.Emitter.new('contact_begin')
   g.contact_end = sm.Emitter.new('contact_end')
-  local function emit_collision_event(emitter)
-    return function(object, level, contact)
-      if object:getUserData().properties then
-	object, level = level, object
-      end
-      local properties = level:getUserData().properties
-      emitter:emit(properties)
-    end
-  end
   g.world:setCallbacks(emit_collision_event(g.contact_begin), emit_collision_event(g.contact_end))
 
   g.map = assets.factory
   g.map:box2d_init(g.world)
 
   local player_start = g.map:getObject('collision', 'player')
-  local body = new_body(g.world, player_start.x + player_start.width / 2, player_start.y + player_start.height / 2, 'dynamic')
-  body:setFixedRotation(true)
-  local shape = new_rectangle(0, 0, player_start.width, player_start.height)
-  local fixture = new_fixture(body, shape, 1)
-  g.player = Player.new(assets.player, {
-    body = body,
-    shape = shape,
-    fixture = fixture
-  })
+  g.player = Player.new(assets.player, g.world, player_start)
 
   g.last = {}
 
