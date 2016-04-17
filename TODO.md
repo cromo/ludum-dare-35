@@ -9,6 +9,16 @@
 - [ ] Graphics
 - [x] Config file for things like run mode (debug/release)
 
+## Events and state machines
+
+- [ ] add the collider to the collision event
+- [ ] walking -> jumping when no longer colliding with floor
+- [ ] add sensors around the player
+
+## Graphics
+
+- [ ] camera
+
 ## Shapes / Player States
 
 - [ ] Ball
