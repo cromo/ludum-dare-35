@@ -5,14 +5,20 @@ local sprites = require 'sprites'
 
 local game = {}
 
-local speed_scaling = 10
+local speed_scaling = 20
 local player_horizontal_speed = speed_scaling * 30
 local player_vertical_speed = speed_scaling * 30
+
+local camera_follow_weight = 0.17
 
 local function is_key(key)
   return function(state, k)
     return key == k
   end
+end
+
+local function clamp(value, min, max)
+  return math.min(math.max(value, min), max)
 end
 
 local quit = love.event.quit
@@ -22,6 +28,7 @@ local new_body = love.physics.newBody
 local new_rectangle = love.physics.newRectangleShape
 local new_fixture = love.physics.newFixture
 local set_meter = love.physics.setMeter
+local graphics = love.graphics
 
 local Player = {}
 function Player.new(sheet, collision)
@@ -32,6 +39,14 @@ function Player.new(sheet, collision)
   p.collision.fixture:setUserData(p)
   game.player_state_machine:initialize_state(p)
   return p
+end
+
+function Player:getX()
+  return self.collision.body:getX()
+end
+
+function Player:getY()
+  return self.collision.body:getY()
 end
 
 function Player.move(x, y)
@@ -125,62 +140,6 @@ function Game.new()
 
   set_meter(32)
 
-  local navigate_sheet = sm.StateMachine.new_from_table{
-    {nil, 'listening'},
-    {
-      'listening', {
-	{
-	  'raw_key_pressed',
-	  function(state, key)
-	    return key == 'left' and state.x == 1
-	  end,
-	  function(state, key)
-	    state.x = state.x - 1
-	    state.s:set_cell(state.x, state.y)
-	  end,
-	  'listening'
-	},
-	{
-	  'raw_key_pressed',
-	  function(state, key)
-	    return key == 'right' and state.x == 0
-	  end,
-	  function(state, key)
-	    state.x = state.x + 1
-	    state.s:set_cell(state.x, state.y)
-	  end,
-	  'listening'
-	},
-	{
-	  'raw_key_pressed',
-	  function(state, key)
-	    return key == 'up' and state.y == 1
-	  end,
-	  function(state, key)
-	    state.y = state.y - 1
-	    state.s:set_cell(state.x, state.y)
-	  end,
-	  'listening'
-	},
-	{
-	  'raw_key_pressed',
-	  function(state, key)
-	    return key == 'down' and state.y == 0
-	  end,
-	  function(state, key)
-	    state.y = state.y + 1
-	    state.s:set_cell(state.x, state.y)
-	  end,
-	  'listening'
-	}
-      }
-    }
-  }
-  g.test_state = {
-    x = 0,
-    y = 0,
-    s = sprites.new(assets.subspike)
-  }
   g.world = love.physics.newWorld(0, 64 * 9.81)
   g.contact_begin = sm.Emitter.new('contact_begin')
   g.contact_end = sm.Emitter.new('contact_end')
@@ -209,7 +168,8 @@ function Game.new()
     fixture = fixture
   })
 
-  navigate_sheet:initialize_state(g.test_state)
+  g.last = {}
+
   return g
 end
 
@@ -217,7 +177,6 @@ function Game:forward_event(p, event)
   if event.kind ~= 'dt' then
     dbg.printf('forwarding %s event', event.kind)
   end
-  sm.process(self.test_state, event)
   sm.process(self.player, event)
 end
 
@@ -227,12 +186,33 @@ function Game:update(dt, event)
 end
 
 function Game:draw()
-  self.map:setDrawRange(0, 0, get_window_width(), get_window_height())
+  local p = self.player
+  local map = self.map
+  local bg = map.layers['background']
+  local tile = bg.data[1][1]
+
+  local bg_width = bg.width * tile.width
+  local bg_height = bg.height * tile.height
+
+  local half_width = graphics.getWidth() / 2
+  local half_height = graphics.getHeight() / 2
+
+  local tx = clamp(math.floor(p:getX()), half_width, bg_width - half_width) - half_width
+  local ty = clamp(math.floor(p:getY()), half_height, bg_height - half_height) - half_height
+  if self.last.tx then
+    tx = math.floor(tx * camera_follow_weight + self.last.tx * (1 - camera_follow_weight))
+    ty = math.floor(ty * camera_follow_weight + self.last.ty * (1 - camera_follow_weight))
+  end
+  self.last.tx = tx
+  self.last.ty = ty
+
+  graphics.push()
+  graphics.translate(-tx, -ty)
+  self.map:setDrawRange(tx, ty, graphics.getWidth(), graphics.getHeight())
   self.map:draw()
 
-  self.test_state.s:draw(0, 0)
-
   self.player:draw()
+  graphics.pop()
 end
 
 game.state_machine = sm.StateMachine.new_from_table{
