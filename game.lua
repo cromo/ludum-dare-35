@@ -14,8 +14,14 @@ local player_hook_jump_horizontal_speed = speed_scaling * 10
 local camera_follow_weight = 0.17
 
 local levels = {
-  'factory',
-  'factory2',
+  'walking',
+  'jumping',
+  'pit',
+  'climb',
+  'catch',
+  'double_sided',
+  -- 'factory',
+  -- 'factory2',
   'end_game'
 }
 
