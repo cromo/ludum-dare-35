@@ -12,6 +12,16 @@ local player_vertical_speed = speed_scaling * 30
 
 local camera_follow_weight = 0.17
 
+local function opposite_direction(direction)
+  local opposites = {
+    left = 'right',
+    right = 'left',
+    up = 'down',
+    down = 'up'
+  }
+  return opposites[direction]
+end
+
 local function wrap_collision_fixture(fixture)
   local userdata = fixture:getUserData()
   if not userdata then
@@ -96,6 +106,19 @@ function Player.new(sheet, world, start)
     fixture = fixture
   }
   p.collision.fixture:setUserData(p)
+  p.touching = {
+    left = nil,
+    right = nil,
+    up = nil,
+    down = nil
+  }
+  p.sides = {
+    left = 'normal',
+    right = 'normal',
+    up = 'normal',
+    down = 'normal'
+  }
+  p.movement_direction = 0
   game.player_state_machine:initialize_state(p)
   return p
 end
@@ -105,7 +128,25 @@ function Player:spawn()
   self.collision.body:setLinearVelocity(0, 0)
 end
 
-function Player:move_sensors()
+function Player.add_direction(direction)
+  return function(self)
+    self.movement_direction = self.movement_direction + direction
+  end
+end
+
+function Player:apply_force()
+  self.collision.body:applyForce(self.movement_direction * player_horizontal_speed, 0)
+  local x, y = self.collision.body:getLinearVelocity()
+  x = clamp(x, -player_max_horizontal_speed, player_max_horizontal_speed)
+  self.collision.body:setLinearVelocity(x, y)
+end
+
+function Player:changing_direction()
+  return self.movement_direction == 0
+end
+
+function Player:moving()
+  return self.movement_direction ~= 0
 end
 
 function Player:getX()
@@ -114,21 +155,6 @@ end
 
 function Player:getY()
   return self.collision.body:getY()
-end
-
-function Player.move(x, y)
-  return function(self)
-    self.collision.body:setLinearDamping(0)
-    self.collision.body:applyLinearImpulse(x, y)
-  end
-end
-
-function Player.move_x(x)
-  return function(self)
-    self.collision.body:setLinearDamping(0)
-    self:stop_x()
-    self.collision.body:applyLinearImpulse(x, 0)
-  end
 end
 
 function Player.accelerate(x, y)
@@ -140,10 +166,13 @@ function Player.accelerate(x, y)
   end
 end
 
-function Player:slow_down()
-  --self.collision.body:setLinearVelocity(0, 0)
-  self.collision.body:setLinearDamping(10)
+function Player.move(x, y)
+  return function(self)
+    self.collision.body:setLinearDamping(0)
+    self.collision.body:applyLinearImpulse(x, y)
+  end
 end
+
 
 function Player.hit(t)
   return function(self, colliders)
@@ -151,13 +180,44 @@ function Player.hit(t)
   end
 end
 
-function Player:stop()
-  self.collision.body:setLinearVelocity(0, 0)
+function Player:now_touching(collision)
+  local static = collision.a
+  if collision.a.type == 'player' then
+    static = collision.b
+  end
+  local side = opposite_direction(static.fixture:getUserData().properties.facing)
+  self.touching[side] = static.type
+  dbg.printf('player %s side now touching %s', side, self.touching[side])
 end
 
-function Player:stop_x()
-  local _, y = self.collision.body:getLinearVelocity()
-  self.collision.body:setLinearVelocity(0, y)
+function Player:stop_touching(collision)
+  local static = collision.a
+  if collision.a.type == 'player' then
+    static = collision.b
+  end
+  local side = opposite_direction(static.fixture:getUserData().properties.facing)
+  local was_touching = self.touching[side]
+  self.touching[side] = nil
+  dbg.printf('player %s side no longer touching %s', side, was_touching)
+end
+
+function Player:shift()
+  for direction, touching in pairs(self.touching) do
+    if touching then
+      self.sides[direction] = touching
+      dbg.print('shifted', direction, touching)
+    end
+  end
+end
+
+function Player:hooked()
+  for direction, touching in pairs(self.touching) do
+    local result = touching and touching == self.sides[direction] and touching == 'hook'
+    -- dbg.print('hooked', touching, opposite_direction(direction), self.sides[opposite_direction(direction)])
+    if result then
+      return touching
+    end
+  end
 end
 
 function Player:draw()
@@ -165,108 +225,73 @@ function Player:draw()
   dbg(graphics.polygon, 'line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
 end
 
+local jumping = 'jumping'
+local standing = 'standing'
+local walking = 'walking'
+
+local started_touching = 'contact_begin'
+local stopped_touching = 'contact_end'
+local pressed = 'raw_key_pressed'
+local released = 'raw_key_released'
+local update = 'dt'
+
+local left = is_key 'left'
+local right = is_key 'right'
+local jump = is_key 'space'
+local shift = is_key 'lshift'
+
+local floor = 'floor'
+local death = 'killbox'
+local hook = 'hook'
+
 game.player_state_machine = sm.StateMachine.new_from_table{
-  {nil, 'jumping'},
+  {nil, jumping},
   {
-    'jumping',
+    jumping,
     {
-      {'dt', nil, Player.move_sensors, 'jumping'},
-      {'contact_begin', Player.hit('floor'), nil, 'standing'},
-      {'raw_key_pressed', is_key('left'), nil, 'jumping_left'},
-      {'raw_key_pressed', is_key('right'), nil, 'jumping_right'},
-      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
+      {update, nil, Player.apply_force},
+      {started_touching, {Player.hit(floor), Player.moving}, nil, walking},
+      {started_touching, Player.hit(floor), nil, standing},
+      {pressed, left, Player.add_direction(-1)},
+      {released, left, Player.add_direction(1)},
+      {pressed, right, Player.add_direction(1)},
+      {released, right, Player.add_direction(-1)},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {started_touching, Player.hit(hook), Player.now_touching},
+      {stopped_touching, Player.hit(hook), Player.stop_touching},
     }
   },
   {
-    'jumping_left',
+    standing,
     {
-      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'jumping_left'},
-      {'raw_key_released', is_key('left'), Player.stop_x, 'jumping'},
-      {'raw_key_pressed', is_key('right'), nil, 'jumping_left_holding_right'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_left'},
-      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
+      {pressed, {jump, Player.hooked}, Player.move(-50, -player_vertical_speed), jumping},
+      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
+      {pressed, Player.hooked},
+      {pressed, left, Player.add_direction(-1), walking},
+      {released, left, Player.add_direction(1), walking},
+      {pressed, right, Player.add_direction(1), walking},
+      {released, right, Player.add_direction(-1), walking},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {pressed, shift, Player.shift},
     }
   },
   {
-    'jumping_left_holding_right',
+    walking,
     {
-      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'jumping_left_holding_right'},
-      {'raw_key_released', is_key('left'), nil, 'jumping_right'},
-      {'raw_key_released', is_key('right'), nil, 'jumping_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_left_holding_right'},
-      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
-    }
-  },
-  {
-    'jumping_right',
-    {
-      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'jumping_right'},
-      {'raw_key_released', is_key('right'), Player.stop_x, 'jumping'},
-      {'raw_key_pressed', is_key('left'), nil, 'jumping_right_holding_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_right'},
-      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
-    }
-  },
-  {
-    'jumping_right_holding_left',
-    {
-      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'jumping_right_holding_left'},
-      {'raw_key_released', is_key('left'), nil, 'jumping_right'},
-      {'raw_key_released', is_key('right'), nil, 'jumping_left'},
-      {'contact_begin', Player.hit('floor'), nil, 'walking_right_holding_left'},
-      {'contact_begin', Player.hit('killbox'), Player.spawn, 'jumping'},
-    }
-  },
-  {
-    'standing',
-    {
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping'},
-      {'raw_key_pressed', is_key('left'), nil, 'walking_left'},
-      {'raw_key_pressed', is_key('right'), nil, 'walking_right'},
-    }
-  },
-  {
-    'walking_left',
-    {
-      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'walking_left'},
-      {'raw_key_released', is_key('left'), Player.stop, 'standing'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left'},
-      {'raw_key_pressed', is_key('right'), nil, 'walking_left_holding_right'},
-      {'contact_end', Player.hit('floor'), nil, 'jumping_left'},
-    }
-  },
-  {
-    'walking_left_holding_right',
-    {
-      {'dt', nil, Player.accelerate(-player_horizontal_speed, 0), 'walking_left_holding_right'},
-      {'raw_key_released', is_key('left'), Player.move_x(player_horizontal_speed), 'walking_right'},
-      {'raw_key_released', is_key('right'), nil, 'walking_left'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_left_holding_right'},
-      {'contact_end', Player.hit('floor'), nil, 'jumping_left_holding_right'},
-    }
-  },
-  {
-    'walking_right',
-    {
-      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'walking_right'},
-      {'raw_key_released', is_key('right'), Player.stop, 'standing'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right'},
-      {'raw_key_pressed', is_key('left'), nil, 'walking_right_holding_left'},
-      {'contact_end', Player.hit('floor'), nil, 'jumping_right'},
-    }
-  },
-  {
-    'walking_right_holding_left',
-    {
-      {'dt', nil, Player.accelerate(player_horizontal_speed, 0), 'walking_right_holding_left'},
-      {'raw_key_released', is_key('left'), nil, 'walking_right'},
-      {'raw_key_released', is_key('right'), Player.move_x(-player_horizontal_speed), 'walking_left'},
-      {'raw_key_pressed', is_key('space'), Player.move(0, -player_vertical_speed), 'jumping_right_holding_left'},
-      {'contact_end', Player.hit('floor'), nil, 'jumping_right_holding_left'},
+      {update, nil, Player.apply_force},
+      {pressed, left, Player.add_direction(-1)},
+      {released, {left, Player.changing_direction}, Player.add_direction(1)},
+      {released, left, Player.add_direction(1), standing},
+      {pressed, right, Player.add_direction(1)},
+      {released, {right, Player.changing_direction}, Player.add_direction(-1)},
+      {released, right, Player.add_direction(-1), standing},
+      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {started_touching, Player.hit(hook), Player.now_touching},
+      {stopped_touching, Player.hit(hook), Player.stop_touching},
     }
   },
 }
-
 
 local Game = {}
 game.Game = Game

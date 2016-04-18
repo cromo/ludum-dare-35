@@ -142,6 +142,28 @@ function StateMachine.new(states)
   return machine
 end
 
+local function lazy_any(fs)
+  return function(...)
+    if #fs == 0 then
+      return false
+    end
+    for _, f in ipairs(fs) do
+      if not f(...) then
+	return false
+      end
+    end
+    return true
+  end
+end
+
+local function lazy_each(fs)
+  return function(...)
+    for _, f in ipairs(fs) do
+      f(...)
+    end
+  end
+end
+
 function StateMachine.new_from_table(raw_states)
   -- {effect, to}
   -- {'name', {trigger, guard, effect, to}, [kind = blah]}
@@ -151,7 +173,7 @@ function StateMachine.new_from_table(raw_states)
   if #raw_states == 1 then
     return StateMachine.new(states)
   end
-local kinds = {regular = State.new, choice = State.new_choice}
+  local kinds = {regular = State.new, choice = State.new_choice}
   for i = 2, #raw_states do
     local raw_state = raw_states[i]
     local name = raw_state[1]
@@ -164,8 +186,14 @@ local kinds = {regular = State.new, choice = State.new_choice}
     for _, raw_transition in ipairs(raw_state[2]) do
       local trigger = raw_transition[1]
       local guard = raw_transition[2]
+      if type(guard) == 'table' then
+	guard = lazy_any(guard)
+      end
       local effect = raw_transition[3]
-      local to = raw_transition[4]
+      if type(effect) == 'table' then
+	effect = lazy_each(effect)
+      end
+      local to = raw_transition[4] or name
       edges[#edges + 1] = Edge.new(trigger, guard, effect, to)
     end
     local state = kind(name, edges)
@@ -196,6 +224,7 @@ function StateMachine:process_event(stateful_object, event)
 	current_state_name = transition:execute(stateful_object, event.payload, event)
 	assert(self.states[current_state_name], "State transitioned to does not exist in the state table: " .. current_state_name)
 	transition_was_taken = true
+	break
       end
     end
   until self.states[current_state_name].kind == regular or self.states[current_state_name].kind == final or not transition_was_taken
