@@ -13,6 +13,12 @@ local player_hook_jump_horizontal_speed = speed_scaling * 10
 
 local camera_follow_weight = 0.17
 
+local levels = {
+  'factory',
+  'factory2',
+  'end_game'
+}
+
 local function opposite_direction(direction)
   local opposites = {
     left = 'right',
@@ -146,6 +152,14 @@ function Player.add_direction(direction, reason)
     self.movement_direction = self.movement_direction + direction
     -- dbg.printf('%s: adding %d to direction giving %d', tostring(reason), direction, self.movement_direction)
   end
+end
+
+function Player:get_direction()
+  return self.movement_direction
+end
+
+function Player:set_direction(direction)
+  self.movement_direction = direction
 end
 
 function Player:apply_force()
@@ -392,26 +406,37 @@ function Game.new()
 
   set_meter(32)
 
-  g.world = love.physics.newWorld(0, 64 * 9.81)
   g.contact_begin = sm.Emitter.new('contact_begin')
   g.contact_end = sm.Emitter.new('contact_end')
-  local presolve = sm.Emitter.new('presolve')
-  g.world:setCallbacks(
-    emit_collision_event(g.contact_begin),
-    emit_collision_event(g.contact_end)
-  )
 
-  g.map = assets.factory
-  g.map:box2d_init(g.world)
-
-  g.map.layers.collision.visible = false
-  dbg(function() g.map.layers.collision.visible = true end)
-  local player_start = g.map:getObject('collision', 'player')
-  g.player = Player.new(assets.player, g.world, player_start)
+  g.level = 0
+  g:advance_level()
 
   g.last = {}
 
   return g
+end
+
+function Game:start_level(level)
+  local direction = 0
+  if self.player then
+    direction = self.player:get_direction()
+  end
+
+  self.world = love.physics.newWorld(0, 64 * 9.81)
+  self.world:setCallbacks(
+    emit_collision_event(self.contact_begin),
+    emit_collision_event(self.contact_end)
+  )
+
+  self.map = assets[level]
+  self.map:box2d_init(self.world)
+
+  self.map.layers.collision.visible = false
+  dbg(function() self.map.layers.collision.visible = true end)
+  local player_start = self.map:getObject('collision', 'player')
+  self.player = Player.new(assets.player, self.world, player_start)
+  self.player:set_direction(direction)
 end
 
 function Game:forward_event(p, event)
@@ -423,7 +448,6 @@ end
 
 function Game:update(dt, event)
   self.world:update(dt)
-  self:forward_event(dt, event)
 end
 
 function Game:draw()
@@ -456,15 +480,42 @@ function Game:draw()
   graphics.pop()
 end
 
+local function player_reached_goal(self, colliders)
+  return collided(colliders, 'player', 'goal')
+end
+
+function Game:respawn_player()
+  self.player:spawn()
+end
+
+function Game.change_to_level(level)
+  return function(self)
+    self:start_level(level)
+  end
+end
+
+function Game:advance_level()
+  self.level = self.level + 1
+  self:start_level(levels[self.level])
+end
+
+function Game:is_last_level()
+  return self.level == #levels
+end
+
+local playing = 'playing'
+local escape = is_key 'escape'
 game.state_machine = sm.StateMachine.new_from_table{
-  {nil, 'main_menu'},
+  {nil, playing},
   {
-    'main_menu', {
-      {'raw_key_pressed', is_key('escape'), quit, 'final'},
-      {'dt', nil, Game.update, 'main_menu'},
-      {nil, nil, Game.forward_event, 'main_menu'}
+    playing, {
+      {pressed, escape, quit, 'final'},
+      {started_touching, {player_reached_goal, Game.is_last_level}, annotate('winner'), 'final'},
+      {started_touching, player_reached_goal, Game.advance_level},
+      {update, nil, {Game.update, Game.forward_event}},
+      {nil, nil, Game.forward_event},
     }
-  }
+  },
 }
 
 game.new = Game.new
