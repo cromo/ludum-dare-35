@@ -38,3 +38,14 @@
 - [ ] Bike
 - [ ] Taco
 - [ ] Enemy
+
+## Levels
+
+- [ ] walking
+- [ ] walls and jumping
+- [ ] pit of death
+- [ ] *shift* and climbable wall
+- [ ] jump across death and shift to grab mid-jump
+- [ ] double shift, wall climb
+- [ ] double shift, mandatory back and forth climb
+- [ ] fall and catch
