@@ -241,7 +241,20 @@ function Player:hooked_jump()
   self.move(direction * player_hook_jump_horizontal_speed, -player_vertical_speed)(self)
 end
 
+function Player:set_cell()
+  if self.sides.left == 'hook' and self.sides.right then
+    self.sprite:set_cell(3, 0)
+  elseif self.sides.left == 'hook' then
+    self.sprite:set_cell(2, 0)
+  elseif self.sides.right == 'hook' then
+    self.sprite:set_cell(1, 0)
+  else
+    self.sprite:set_cell(0, 0)
+  end
+end
+
 function Player:draw()
+  self:set_cell()
   self.sprite:draw(self.collision.body:getX() - self.sprite:getWidth() / 2, self.collision.body:getY() - self.sprite:getHeight() / 2)
   dbg(graphics.polygon, 'line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
   dbg(graphics.print, string.format('%s\n%d', self.state.name, self.movement_direction), self.collision.body:getX(), self.collision.body:getY())
