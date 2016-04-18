@@ -5,10 +5,11 @@ local sprites = require 'sprites'
 
 local game = {}
 
-local speed_scaling = 20
-local player_horizontal_speed = speed_scaling * 30
-local player_max_horizontal_speed = speed_scaling * 30
+local speed_scaling = 10
+local player_horizontal_speed = speed_scaling * 60
+local player_max_horizontal_speed = speed_scaling * 45
 local player_vertical_speed = speed_scaling * 30
+local player_hook_jump_horizontal_speed = speed_scaling * 10
 
 local camera_follow_weight = 0.17
 
@@ -128,9 +129,10 @@ function Player:spawn()
   self.collision.body:setLinearVelocity(0, 0)
 end
 
-function Player.add_direction(direction)
+function Player.add_direction(direction, reason)
   return function(self)
     self.movement_direction = self.movement_direction + direction
+    dbg.printf('%s: adding %d to direction giving %d', tostring(reason), direction, self.movement_direction)
   end
 end
 
@@ -147,6 +149,16 @@ end
 
 function Player:moving()
   return self.movement_direction ~= 0
+end
+
+function Player:stop_movement()
+  self.movement_direction = 0
+end
+
+function Player:hang()
+  self.collision.body:setGravityScale(0)
+  self.collision.body:setLinearVelocity(0, 0)
+  --self:stop_movement()
 end
 
 function Player:getX()
@@ -172,7 +184,6 @@ function Player.move(x, y)
     self.collision.body:applyLinearImpulse(x, y)
   end
 end
-
 
 function Player.hit(t)
   return function(self, colliders)
@@ -215,19 +226,34 @@ function Player:hooked()
     local result = touching and touching == self.sides[direction] and touching == 'hook'
     -- dbg.print('hooked', touching, opposite_direction(direction), self.sides[opposite_direction(direction)])
     if result then
-      return touching
+      return direction
     end
   end
+end
+
+function Player:hooked_jump()
+  local side = self:hooked()
+  local direction = -1
+  if side == 'left' then
+    direction = 1
+  end
+  self.collision.body:setGravityScale(1)
+  self.move(direction * player_hook_jump_horizontal_speed, -player_vertical_speed)(self)
 end
 
 function Player:draw()
   self.sprite:draw(self.collision.body:getX() - self.sprite:getWidth() / 2, self.collision.body:getY() - self.sprite:getHeight() / 2)
   dbg(graphics.polygon, 'line', self.collision.body:getWorldPoints(self.collision.shape:getPoints()))
+  dbg(graphics.print, string.format('%s\n%d', self.state.name, self.movement_direction), self.collision.body:getX(), self.collision.body:getY())
 end
 
 local jumping = 'jumping'
 local standing = 'standing'
 local walking = 'walking'
+local shifted = 'shifted'
+local shifted_jump = 'shifted_jump'
+local shifted_walking = 'shifted_walking'
+local hooked = 'hooked'
 
 local started_touching = 'contact_begin'
 local stopped_touching = 'contact_end'
@@ -247,47 +273,79 @@ local hook = 'hook'
 game.player_state_machine = sm.StateMachine.new_from_table{
   {nil, jumping},
   {
-    jumping,
+    standing,
     {
-      {update, nil, Player.apply_force},
-      {started_touching, {Player.hit(floor), Player.moving}, nil, walking},
-      {started_touching, Player.hit(floor), nil, standing},
+      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
+      {pressed, left, Player.add_direction(-1, 'standing hit left'), walking},
+      {released, left, Player.add_direction(1, 'standing released left'), walking},
+      {pressed, right, Player.add_direction(1, 'standing hit right'), walking},
+      {released, right, Player.add_direction(-1, 'standing released right'), walking},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {pressed, shift, Player.shift, shifted},
+    }
+  },
+  {
+    kind = 'choice',
+    shifted,
+    {
+      {nil, Player.hooked, Player.hang, hooked},
+      {nil, nil, nil, standing},
+    }
+  },
+  {
+    kind = 'choice',
+    shifted_walking,
+    {
+      {nil, Player.hooked, Player.hang, hooked},
+      {nil, nil, nil, walking},
+    }
+  },
+  {
+    kind = 'choice',
+    shifted_jump,
+    {
+      {nil, Player.hooked, Player.hang, hooked},
+      {nil, nil, nil, jumping},
+    }
+  },
+  {
+    hooked,
+    {
+      {pressed, jump, Player.hooked_jump, jumping},
       {pressed, left, Player.add_direction(-1)},
       {released, left, Player.add_direction(1)},
       {pressed, right, Player.add_direction(1)},
       {released, right, Player.add_direction(-1)},
-      {started_touching, Player.hit(death), Player.spawn, jumping},
-      {started_touching, Player.hit(hook), Player.now_touching},
-      {stopped_touching, Player.hit(hook), Player.stop_touching},
-    }
-  },
-  {
-    standing,
-    {
-      {pressed, {jump, Player.hooked}, Player.move(-50, -player_vertical_speed), jumping},
-      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
-      {pressed, Player.hooked},
-      {pressed, left, Player.add_direction(-1), walking},
-      {released, left, Player.add_direction(1), walking},
-      {pressed, right, Player.add_direction(1), walking},
-      {released, right, Player.add_direction(-1), walking},
-      {started_touching, Player.hit(death), Player.spawn, jumping},
-      {pressed, shift, Player.shift},
     }
   },
   {
     walking,
     {
       {update, nil, Player.apply_force},
-      {pressed, left, Player.add_direction(-1)},
-      {released, {left, Player.changing_direction}, Player.add_direction(1)},
-      {released, left, Player.add_direction(1), standing},
-      {pressed, right, Player.add_direction(1)},
-      {released, {right, Player.changing_direction}, Player.add_direction(-1)},
-      {released, right, Player.add_direction(-1), standing},
+      {pressed, left, Player.add_direction(-1, 'walking hit left')},
+      {released, {left, Player.changing_direction}, Player.add_direction(1, 'walking released left changing direction')},
+      {released, left, Player.add_direction(1, 'walking released left'), standing},
+      {pressed, right, Player.add_direction(1, 'walking hit right')},
+      {released, {right, Player.changing_direction}, Player.add_direction(-1, 'walking released right changing direction')},
+      {released, right, Player.add_direction(-1, 'walking released right'), standing},
       {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
       {started_touching, Player.hit(death), Player.spawn, jumping},
-      {started_touching, Player.hit(hook), Player.now_touching},
+      {started_touching, Player.hit(hook), Player.now_touching, shifted_walking},
+      {stopped_touching, Player.hit(hook), Player.stop_touching},
+    }
+  },
+  {
+    jumping,
+    {
+      {update, nil, Player.apply_force},
+      {started_touching, {Player.hit(floor), Player.moving}, nil, walking},
+      {started_touching, Player.hit(floor), nil, standing},
+      {pressed, left, Player.add_direction(-1, 'jumping hit left')},
+      {released, left, Player.add_direction(1, 'jumping released left')},
+      {pressed, right, Player.add_direction(1, 'jumping hit right')},
+      {released, right, Player.add_direction(-1, 'jumping released right')},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {started_touching, Player.hit(hook), Player.now_touching, shifted_jump},
       {stopped_touching, Player.hit(hook), Player.stop_touching},
     }
   },
