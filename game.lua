@@ -285,6 +285,49 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     }
   },
   {
+    walking,
+    {
+      {update, nil, Player.apply_force},
+      {pressed, left, Player.add_direction(-1, 'walking hit left')},
+      {released, {left, Player.changing_direction}, Player.add_direction(1, 'walking released left changing direction')},
+      {released, left, Player.add_direction(1, 'walking released left'), standing},
+      {pressed, right, Player.add_direction(1, 'walking hit right')},
+      {released, {right, Player.changing_direction}, Player.add_direction(-1, 'walking released right changing direction')},
+      {released, right, Player.add_direction(-1, 'walking released right'), standing},
+      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {started_touching, Player.hit(hook), Player.now_touching, shifted_walking},
+      {stopped_touching, Player.hit(hook), Player.stop_touching},
+      {pressed, shift, Player.shift, shifted_walking},
+    }
+  },
+  {
+    jumping,
+    {
+      {update, nil, Player.apply_force},
+      {started_touching, {Player.hit(floor), Player.moving}, nil, walking},
+      {started_touching, Player.hit(floor), nil, standing},
+      {pressed, left, Player.add_direction(-1, 'jumping hit left')},
+      {released, left, Player.add_direction(1, 'jumping released left')},
+      {pressed, right, Player.add_direction(1, 'jumping hit right')},
+      {released, right, Player.add_direction(-1, 'jumping released right')},
+      {started_touching, Player.hit(death), Player.spawn, jumping},
+      {started_touching, Player.hit(hook), Player.now_touching, shifted_jump},
+      {stopped_touching, Player.hit(hook), Player.stop_touching},
+      {pressed, shift, Player.shift, shifted_jump},
+    }
+  },
+  {
+    hooked,
+    {
+      {pressed, jump, Player.hooked_jump, jumping},
+      {pressed, left, Player.add_direction(-1)},
+      {released, left, Player.add_direction(1)},
+      {pressed, right, Player.add_direction(1)},
+      {released, right, Player.add_direction(-1)},
+    }
+  },
+  {
     kind = 'choice',
     shifted,
     {
@@ -306,47 +349,6 @@ game.player_state_machine = sm.StateMachine.new_from_table{
     {
       {nil, Player.hooked, Player.hang, hooked},
       {nil, nil, nil, jumping},
-    }
-  },
-  {
-    hooked,
-    {
-      {pressed, jump, Player.hooked_jump, jumping},
-      {pressed, left, Player.add_direction(-1)},
-      {released, left, Player.add_direction(1)},
-      {pressed, right, Player.add_direction(1)},
-      {released, right, Player.add_direction(-1)},
-    }
-  },
-  {
-    walking,
-    {
-      {update, nil, Player.apply_force},
-      {pressed, left, Player.add_direction(-1, 'walking hit left')},
-      {released, {left, Player.changing_direction}, Player.add_direction(1, 'walking released left changing direction')},
-      {released, left, Player.add_direction(1, 'walking released left'), standing},
-      {pressed, right, Player.add_direction(1, 'walking hit right')},
-      {released, {right, Player.changing_direction}, Player.add_direction(-1, 'walking released right changing direction')},
-      {released, right, Player.add_direction(-1, 'walking released right'), standing},
-      {pressed, jump, Player.move(0, -player_vertical_speed), jumping},
-      {started_touching, Player.hit(death), Player.spawn, jumping},
-      {started_touching, Player.hit(hook), Player.now_touching, shifted_walking},
-      {stopped_touching, Player.hit(hook), Player.stop_touching},
-    }
-  },
-  {
-    jumping,
-    {
-      {update, nil, Player.apply_force},
-      {started_touching, {Player.hit(floor), Player.moving}, nil, walking},
-      {started_touching, Player.hit(floor), nil, standing},
-      {pressed, left, Player.add_direction(-1, 'jumping hit left')},
-      {released, left, Player.add_direction(1, 'jumping released left')},
-      {pressed, right, Player.add_direction(1, 'jumping hit right')},
-      {released, right, Player.add_direction(-1, 'jumping released right')},
-      {started_touching, Player.hit(death), Player.spawn, jumping},
-      {started_touching, Player.hit(hook), Player.now_touching, shifted_jump},
-      {stopped_touching, Player.hit(hook), Player.stop_touching},
     }
   },
 }
