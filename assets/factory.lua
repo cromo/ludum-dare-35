@@ -8,7 +8,7 @@ return {
   height = 50,
   tilewidth = 32,
   tileheight = 32,
-  nextobjectid = 90,
+  nextobjectid = 91,
   properties = {},
   tilesets = {
     {
@@ -253,9 +253,9 @@ return {
           name = "",
           type = "",
           shape = "rectangle",
-          x = 1.5,
+          x = -1780,
           y = 1592,
-          width = 1597.5,
+          width = 7312,
           height = 7.5,
           rotation = 0,
           visible = true,
@@ -549,6 +549,23 @@ return {
             ["facing"] = "left",
             ["subtype"] = "floor",
             ["type"] = "hook"
+          }
+        },
+        {
+          id = 90,
+          name = "goal",
+          type = "",
+          shape = "rectangle",
+          x = 726,
+          y = 412,
+          width = 42,
+          height = 44,
+          rotation = 0,
+          visible = true,
+          properties = {
+            ["collidable"] = true,
+            ["sensor"] = true,
+            ["type"] = "goal"
           }
         }
       }

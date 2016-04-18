@@ -1,5 +1,6 @@
 local dbg = {}
 
+dbg.enabled = false
 dbg.enabled = true
 
 function dbg.print(...)

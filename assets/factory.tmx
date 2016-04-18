@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" nextobjectid="90">
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" nextobjectid="91">
  <tileset firstgid="1" name="factory_tilesheet" tilewidth="32" tileheight="32" tilecount="15" columns="5">
   <image source="factory_tilesheet.png" width="160" height="96"/>
  </tileset>
@@ -141,7 +141,7 @@
    </properties>
    <polyline points="0,0 -1,1599"/>
   </object>
-  <object id="58" x="1.5" y="1592" width="1597.5" height="7.5">
+  <object id="58" x="-1780" y="1592" width="7312" height="7.5">
    <properties>
     <property name="collidable" type="bool" value="true"/>
     <property name="sensor" type="bool" value="false"/>
@@ -245,6 +245,13 @@
     <property name="type" value="hook"/>
    </properties>
    <polyline points="0,0 0.333333,636.333"/>
+  </object>
+  <object id="90" name="goal" x="726" y="412" width="42" height="44">
+   <properties>
+    <property name="collidable" type="bool" value="true"/>
+    <property name="sensor" type="bool" value="true"/>
+    <property name="type" value="goal"/>
+   </properties>
   </object>
  </objectgroup>
 </map>

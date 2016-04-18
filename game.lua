@@ -127,12 +127,24 @@ end
 function Player:spawn()
   self.collision.body:setPosition(self.start.x + self.start.width / 2, self.start.y + self.start.height / 2)
   self.collision.body:setLinearVelocity(0, 0)
+  self.touching = {
+    left = nil,
+    right = nil,
+    up = nil,
+    down = nil
+  }
+  self.sides = {
+    left = 'normal',
+    right = 'normal',
+    up = 'normal',
+    down = 'normal'
+  }
 end
 
 function Player.add_direction(direction, reason)
   return function(self)
     self.movement_direction = self.movement_direction + direction
-    dbg.printf('%s: adding %d to direction giving %d', tostring(reason), direction, self.movement_direction)
+    -- dbg.printf('%s: adding %d to direction giving %d', tostring(reason), direction, self.movement_direction)
   end
 end
 
@@ -282,6 +294,7 @@ local shift = is_key 'lshift'
 local floor = 'floor'
 local death = 'killbox'
 local hook = 'hook'
+local goal = 'goal'
 
 game.player_state_machine = sm.StateMachine.new_from_table{
   {nil, jumping},
@@ -295,6 +308,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
       {released, right, Player.add_direction(-1, 'standing released right'), walking},
       {started_touching, Player.hit(death), Player.spawn, jumping},
       {pressed, shift, Player.shift, shifted},
+      {started_touching, Player.hit(goal), annotate('winner is you')},
     }
   },
   {
@@ -311,7 +325,9 @@ game.player_state_machine = sm.StateMachine.new_from_table{
       {started_touching, Player.hit(death), Player.spawn, jumping},
       {started_touching, Player.hit(hook), Player.now_touching, shifted_walking},
       {stopped_touching, Player.hit(hook), Player.stop_touching},
+      {stopped_touching, Player.hit(floor), nil, jumping},
       {pressed, shift, Player.shift, shifted_walking},
+      {started_touching, Player.hit(goal), annotate('winner is you')},
     }
   },
   {
@@ -328,6 +344,7 @@ game.player_state_machine = sm.StateMachine.new_from_table{
       {started_touching, Player.hit(hook), Player.now_touching, shifted_jump},
       {stopped_touching, Player.hit(hook), Player.stop_touching},
       {pressed, shift, Player.shift, shifted_jump},
+      {started_touching, Player.hit(goal), annotate('winner is you')},
     }
   },
   {
