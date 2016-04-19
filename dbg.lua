@@ -1,7 +1,7 @@
 local dbg = {}
 
 dbg.enabled = false
-dbg.enabled = true
+-- dbg.enabled = true
 
 function dbg.print(...)
   if dbg.enabled then

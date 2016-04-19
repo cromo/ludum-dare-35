@@ -7,9 +7,12 @@ local game_engine = require 'game'
 
 local game
 function love.load()
+  love.window.setTitle("Reflow")
   assets.register('lua', function(path) return sti.new(path, {'box2d'}) end)
   assets.register('png', sprites.Sheet.load)
   assets.load 'assets'
+
+  love.window.setIcon(assets.exit.image:getData())
 
   game = game_engine.new()
 
